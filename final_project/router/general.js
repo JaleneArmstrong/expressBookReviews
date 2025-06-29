@@ -20,40 +20,119 @@ public_users.post("/register", (req,res) => {
 });
 
 // Get the book list available in the shop
-axios.get('http://localhost:5000/')
-  .then(response => {
-    console.log("Books list:", response.data);
-  })
-  .catch(error => {
-    console.error("Error fetching books:", error.message);
-  });
+public_users.get('/',function (req, res) {
+    return res.status(200).send(JSON.stringify(books, null, 4));
+});
+
+async function getAllBooks() {
+    try {
+        const response = await axios.get('http://localhost:5000/');
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+}
+
 // Get book details based on ISBN
 public_users.get('/isbn/:isbn',function (req, res) {
-axios.get(`http://localhost:5000/isbn/${isbn}`)
-  .then(response => {
-    console.log("Book details:", response.data);
-  })
-  .catch(error => {
-    console.error("Error fetching book by ISBN:", error.message);
-  });// Get book details based on author
+    const isbn = req.params.isbn;
+    const book = books[isbn];
+  
+    if (book) {
+      return res.status(200).send(JSON.stringify(book, null, 4));
+    } else {
+      return res.status(404).json({ message: "Book not found" });
+    }
+});
+
+async function getBookDetailsByISBN(isbn) {
+    try {
+        const response = await axios.get(`http://localhost:5000/isbn/${isbn}`);
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+}
+  
+// Get book details based on author
 public_users.get('/author/:author',function (req, res) {
     const requestedAuthor = req.params.author;
-axios.get(`http://localhost:5000/author/${encodeURIComponent(author)}`)
-  .then(response => {
-    console.log("Books by author:", response.data);
-  })
-  .catch(error => {
-    console.error("Error fetching books by author:", error.message);
-  });
+    const matchingBooks = [];
+
+    Object.keys(books).forEach((key) => {
+      const book = books[key];
+      if (book.author.toLowerCase() === requestedAuthor.toLowerCase()) {
+        matchingBooks.push({ isbn: key, ...book });
+      }
+    });
+  
+    if (matchingBooks.length > 0) {
+      return res.status(200).send(JSON.stringify(matchingBooks, null, 4));
+    } else {
+      return res.status(404).json({ message: "No books found by the given author" });
+    }
+});
+
+async function getBooksByAuthor(author) {
+    try {
+        const response = await axios.get('http://localhost:5000/');
+        const booksData = response.data;
+
+        const matchingBooks = [];
+
+        for (const isbn in booksData) {
+            const book = booksData[isbn];
+            if (book.author.toLowerCase() === author.toLowerCase()) {
+                matchingBooks.push({ isbn, ...book });
+            }
+        }
+
+        return matchingBooks;
+    } catch (error) {
+        throw error;
+    }
+}
+
+// Get all books based on title
 public_users.get('/title/:title',function (req, res) {
     const requestedTitle = req.params.title.trim().toLowerCase();
-axios.get(`http://localhost:5000/title/${encodeURIComponent(title)}`)
-  .then(response => {
-    console.log("Books with title:", response.data);
-  })
-  .catch(error => {
-    console.error("Error fetching books by title:", error.message);
-  }); Get book review
+    const matchingBooks = [];
+
+  for (const key in books) {
+    const bookTitle = books[key].title.trim().toLowerCase();
+    if (bookTitle === requestedTitle) {
+      matchingBooks.push({ isbn: key, ...books[key] });
+    }
+  }
+
+  if (matchingBooks.length > 0) {
+    return res.status(200).send(JSON.stringify(matchingBooks, null, 4));
+  } else {
+    return res.status(404).json({ message: "No books found with the given title" });
+  }
+});
+
+async function getBooksByTitle(title) {
+    try {
+        const response = await axios.get('http://localhost:5000/');
+        const booksData = response.data;
+
+        const matchingBooks = [];
+
+        for (const isbn in booksData) {
+            const book = booksData[isbn];
+            if (book.title.trim().toLowerCase() === title.trim().toLowerCase()) {
+                matchingBooks.push({ isbn, ...book });
+            }
+        }
+
+        return matchingBooks;
+    } catch (error) {
+        throw error;
+    }
+}
+
+// Get book review
 public_users.get('/review/:isbn',function (req, res) {
     const isbn = req.params.isbn;
 
