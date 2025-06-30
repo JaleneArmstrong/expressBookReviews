@@ -3,7 +3,12 @@ let books = require("./booksdb.js");
 let isValid = require("./auth_users.js").isValid;
 let users = require("./auth_users.js").users;
 const public_users = express.Router();
-const axios = require('axios');
+
+function promiseCb(callback, delay) {
+    return new Promise((resolve) => {
+        setTimeout(() => callback(resolve), delay);
+    });
+}
 
 public_users.post("/register", (req,res) => {
     const { username, password } = req.body;
@@ -20,117 +25,78 @@ public_users.post("/register", (req,res) => {
 });
 
 // Get the book list available in the shop
-public_users.get('/',function (req, res) {
-    return res.status(200).send(JSON.stringify(books, null, 4));
-});
-
-async function getAllBooks() {
+public_users.get('/', async function (req, res) {
     try {
-        const response = await axios.get('http://localhost:5000/');
-        return response.data;
+        const data = await promiseCb((resolve) => {
+            const booksList = Object.values(books);
+            resolve(booksList);
+        }, 3000);
+
+        return res.status(200).json(data);
     } catch (error) {
-        throw error;
+        return res.status(500).json({ message: "An Internal Server Error Occurred."});
     }
-}
+});
 
 // Get book details based on ISBN
-public_users.get('/isbn/:isbn',function (req, res) {
-    const isbn = req.params.isbn;
-    const book = books[isbn];
-  
-    if (book) {
-      return res.status(200).send(JSON.stringify(book, null, 4));
-    } else {
-      return res.status(404).json({ message: "Book not found" });
+public_users.get('/isbn/:isbn', async function (req, res) {
+    try {
+        const data = await promiseCb((resolve) => {
+            const isbn = req.params.isbn + "";
+            const book = books[isbn];
+            resolve(book);
+        }, 3000);
+        
+        if (data) {
+            return res.status(200).json(data);
+        }
+        return res.status(404).json({ message: "Invalid ISBN Provided" });
+    } catch (error) {
+        return res.status(500).json({ message: "An Internal Server Error Occurred." });
     }
 });
-
-async function getBookDetailsByISBN(isbn) {
-    try {
-        const response = await axios.get(`http://localhost:5000/isbn/${isbn}`);
-        return response.data;
-    } catch (error) {
-        throw error;
-    }
-}
   
 // Get book details based on author
-public_users.get('/author/:author',function (req, res) {
-    const requestedAuthor = req.params.author;
-    const matchingBooks = [];
+public_users.get('/author/:author', async function (req, res) {
+    try {
+        const data = await promiseCb((resolve) => {
+            const author = (req.params.author + "").toLocaleLowerCase();
+            const booksList = Object.values(books);
+            const newBooks = booksList.filter((book) => 
+                book.author.toLocaleLowerCase().match(author)    
+            );
+            resolve(newBooks);
+        }, 3000);
 
-    Object.keys(books).forEach((key) => {
-      const book = books[key];
-      if (book.author.toLowerCase() === requestedAuthor.toLowerCase()) {
-        matchingBooks.push({ isbn: key, ...book });
-      }
-    });
-  
-    if (matchingBooks.length > 0) {
-      return res.status(200).send(JSON.stringify(matchingBooks, null, 4));
-    } else {
-      return res.status(404).json({ message: "No books found by the given author" });
+        if (Array.isArray(data) && data.length) {
+            return res.status(200).json(data);
+        }
+        return res.status(404).json({ message: "Invalid Author Provided "});
+    } catch (error) {
+        return res.status(500).json({ message: "An Internal Server Error Occurred." });
     }
 });
-
-async function getBooksByAuthor(author) {
-    try {
-        const response = await axios.get('http://localhost:5000/');
-        const booksData = response.data;
-
-        const matchingBooks = [];
-
-        for (const isbn in booksData) {
-            const book = booksData[isbn];
-            if (book.author.toLowerCase() === author.toLowerCase()) {
-                matchingBooks.push({ isbn, ...book });
-            }
-        }
-
-        return matchingBooks;
-    } catch (error) {
-        throw error;
-    }
-}
 
 // Get all books based on title
-public_users.get('/title/:title',function (req, res) {
-    const requestedTitle = req.params.title.trim().toLowerCase();
-    const matchingBooks = [];
-
-  for (const key in books) {
-    const bookTitle = books[key].title.trim().toLowerCase();
-    if (bookTitle === requestedTitle) {
-      matchingBooks.push({ isbn: key, ...books[key] });
-    }
-  }
-
-  if (matchingBooks.length > 0) {
-    return res.status(200).send(JSON.stringify(matchingBooks, null, 4));
-  } else {
-    return res.status(404).json({ message: "No books found with the given title" });
-  }
-});
-
-async function getBooksByTitle(title) {
+public_users.get('/title/:title', async function (req, res) {
     try {
-        const response = await axios.get('http://localhost:5000/');
-        const booksData = response.data;
+        const data = await promiseCb((resolve) => {
+            const title = (req.params.title + "").toLocaleLowerCase();
+            const booksList = Object.values(books);
+            const newBooks = booksList.filter((book) =>
+                book.title.toLocaleLowerCase().match(title)
+            );
+            resolve(newBooks);
+        }, 3000);
 
-        const matchingBooks = [];
-
-        for (const isbn in booksData) {
-            const book = booksData[isbn];
-            if (book.title.trim().toLowerCase() === title.trim().toLowerCase()) {
-                matchingBooks.push({ isbn, ...book });
-            }
+        if (Array.isArray(data) && data.length) {
+            return res.status(200).json(data);
         }
-
-        return matchingBooks;
+        return res.status(404).json({ message: "Invalid Title Provided"});
     } catch (error) {
-        throw error;
+        return res.status(500).json({ message: "An Internal Server Error Occurred." });
     }
-}
+});
 
 // Get book review
 public_users.get('/review/:isbn',function (req, res) {
